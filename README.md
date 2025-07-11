@@ -27,14 +27,14 @@ A high-performance **Go-based backend API** that calculates the **Probability of
 
 ## 👨‍💻 What I Did (Highlights)
 
-✅ Built a **POST API** `/pop` using **Gin** framework
-✅ Parsed options data (`CE/PE`, `Buy/Sell`, `LTP`, `strike`, etc.)
-✅ Connected with **Firstock API** to fetch **real-time IV** (or fallback)
-✅ Simulated expiry prices using **log-normal distribution**
-✅ Calculated **P\&L for each leg** of the strategy
-✅ Counted simulations where overall payoff ≥ 0 to compute **PoP**
-✅ Added **unit tests** for Long Call & Short Put Spread
-✅ Wrote **detailed documentation**, health check, error handling, and `.env` support
+- Built a **POST API** `/pop` using **Gin** framework
+- Parsed options data (`CE/PE`, `Buy/Sell`, `LTP`, `strike`, etc.)
+- Connected with **Firstock API** to fetch **real-time IV** (or fallback)
+- Simulated expiry prices using **log-normal distribution**
+- Calculated **P\&L for each leg** of the strategy
+- Counted simulations where overall payoff ≥ 0 to compute **PoP**
+- Added **unit tests** for Long Call & Short Put Spread
+- Wrote **detailed documentation**, health check, error handling, and `.env` support
 
 ---
 
@@ -46,20 +46,13 @@ A high-performance **Go-based backend API** that calculates the **Probability of
 - Git installed
 - (Optional) Firstock account credentials for real IV
 
----
-
 ### 2. 📦 Setup Project
 
 ```bash
-# Clone the repository
 git clone <repo-url>
 cd pop-calculator
-
-# Install dependencies
 go mod download
 ```
-
----
 
 ### 3. 🔐 Setup .env (Optional, for real-time IV)
 
@@ -73,22 +66,14 @@ FIRSTOCK_VENDOR_CODE=your_vendor_code
 EOF
 ```
 
----
-
 ### 4. 🚀 Run the Server
 
 ```bash
-# Build binary
 go build -o pop-calculator
-
-# Run binary
 ./pop-calculator
-
-# OR run directly with go
+# OR
 go run main.go
 ```
-
----
 
 ### 5. ✅ Test the API
 
@@ -98,34 +83,12 @@ go run main.go
 curl http://localhost:8080/status
 ```
 
-**Calculate PoP for a sample strategy:**
+**Calculate PoP:**
 
 ```bash
 curl -X POST http://localhost:8080/pop \
   -H "Content-Type: application/json" \
-  -d '{
-    "spot": 22913.15,
-    "expiry": "06-MAR-2025",
-    "daysToExpiry": 8,
-    "symbol": "NIFTY",
-    "optionList": [
-      {
-        "optionType": "CE",
-        "transactionType": "B",
-        "strike": 22950,
-        "ltp": 154.7,
-        "quantity": 75
-      }
-    ]
-  }'
-```
-
-**Response:**
-
-```json
-{
-  "pop": 0.41
-}
+  -d @strategy.json
 ```
 
 ---
@@ -136,10 +99,8 @@ curl -X POST http://localhost:8080/pop \
 
 - **Log-normal simulation:**
   $S(T) = S(0) \times \exp\left(-\frac{\sigma^2}{2} \cdot T + \sigma \cdot \sqrt{T} \cdot Z\right)$
-
 - **Monte Carlo engine:**
   Simulates 10,000 expiry prices using above formula
-
 - **P\&L Calculation:**
 
   - Long Call: `(max(S - K, 0) - premium) * quantity`
@@ -153,32 +114,23 @@ curl -X POST http://localhost:8080/pop \
 
 ```bash
 pop-calculator/
-├── main.go                 # App entrypoint
-├── controller/
-│   └── pop_controller.go   # Handles HTTP POST /pop
-├── service/
-│   └── pop_service.go      # Business logic (IV fetch, simulation)
-├── model/
-│   └── pop_model.go        # Data models (request/response)
-├── firstock/
-│   └── client.go           # Connects to Firstock for IV
-├── test/
-│   └── pop_test.go         # Unit tests for strategies
-├── go.mod                  # Go dependencies
-└── .env                    # Your credentials (optional)
+├── main.go
+├── controller/pop_controller.go
+├── service/pop_service.go
+├── model/pop_model.go
+├── firstock/client.go
+├── test/pop_test.go
+├── go.mod
+└── .env
 ```
 
 ---
 
 ## 🧪 Unit Tests
 
-You can run all tests using:
-
 ```bash
 go test ./...
 ```
-
-Example test output:
 
 ```
 === RUN   TestLongCallStrategy
@@ -190,37 +142,37 @@ Example test output:
 --- PASS: TestShortPutSpreadStrategy (0.00s)
 ```
 
-✅ Tests for:
-
-- Long Call
-- Short Put Spread
-- Fallback IV calculation
-- Net payoff logic
-
 ---
 
 ## 📡 API Details
 
 ### POST `/pop`
 
-| Field               | Type      | Description                      |
-| ------------------- | --------- | -------------------------------- |
-| `spot`              | `float64` | Current price of underlying      |
-| `expiry`            | `string`  | Expiry date (e.g., 06-MAR-2025)  |
-| `daysToExpiry`      | `int`     | Days to expiry                   |
-| `symbol`            | `string`  | Trading symbol (NIFTY/BANKNIFTY) |
-| `optionList`        | `array`   | List of option legs              |
-| ↳ `optionType`      | `string`  | "CE" or "PE"                     |
-| ↳ `transactionType` | `string`  | "B" (Buy) or "S" (Sell)          |
-| ↳ `strike`          | `float64` | Strike price of the option       |
-| ↳ `ltp`             | `float64` | Premium (last traded price)      |
-| ↳ `quantity`        | `int`     | Number of contracts              |
-
-### Response:
+**Request Body:**
 
 ```json
 {
-  "pop": 0.65
+  "spot": 22913.15,
+  "expiry": "06-MAR-2025",
+  "daysToExpiry": 8,
+  "symbol": "NIFTY",
+  "optionList": [
+    {
+      "optionType": "CE",
+      "transactionType": "B",
+      "strike": 22950,
+      "ltp": 154.7,
+      "quantity": 75
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "pop": 0.41
 }
 ```
 
@@ -228,28 +180,18 @@ Example test output:
 
 ## 📚 Modeling Assumptions
 
-| Assumption                    | Description                              |
-| ----------------------------- | ---------------------------------------- |
-| Risk-free rate = 0            | Simplified model                         |
-| No dividends                  | Not factored into option prices          |
-| Log-normal price distribution | More realistic than normal               |
-| European-style options        | Exercised only at expiry                 |
-| Transaction costs ignored     | Net payoff = intrinsic - premium         |
-| Constant IV                   | Assumes IV remains unchanged till expiry |
+| Assumption                    | Description                      |
+| ----------------------------- | -------------------------------- |
+| Risk-free rate = 0            | Simplified model                 |
+| No dividends                  | Not factored into option prices  |
+| Log-normal price distribution | More realistic than normal       |
+| European-style options        | Exercised only at expiry         |
+| Transaction costs ignored     | Net payoff = intrinsic - premium |
+| Constant IV                   | Assumes IV remains till expiry   |
 
 ---
 
-## 🔧 Advanced Features
-
-- Real-time IV via **Firstock API**
-- Fallback IV: Base 15% + premium factor
-- `.env` support for environment configs
-- Built-in `/status` endpoint
-- Custom strategies: Iron Condors, Straddles, Spreads supported
-
----
-
-## 🛠 Technologies Used
+## 🛠️ Technologies Used
 
 | Tech         | Role                     |
 | ------------ | ------------------------ |
@@ -265,20 +207,8 @@ Example test output:
 
 ## 🚀 Ready to Use?
 
-**Start it:**
-
 ```bash
 go run main.go
-```
-
-**Ping it:**
-
-```bash
 curl http://localhost:8080/status
-```
-
-**Try a strategy:**
-
-```bash
 curl -X POST http://localhost:8080/pop -d @strategy.json
 ```
