@@ -75,7 +75,7 @@ func CalculatePoPValue(spot float64, daysToExpiry float64, expiryDate string, sy
     T := daysToExpiry / 365
 
     // mean := spot
-	
+
     // Get real-time IV for each unique option
     optionIVs := make(map[string]float64)
     
@@ -120,9 +120,7 @@ func CalculatePoPValue(spot float64, daysToExpiry float64, expiryDate string, sy
         if pnl >= 0 {
             profitableCount++
         }
-		if i < 5 { // Print only first few to avoid flooding
-        	fmt.Printf("Sim #%d: Price=%.2f | PnL=%.2f | IV=%.2f\n", i, simulatedPrice, pnl, avgIV)
-    	}
+
     }
     
     pop := float64(profitableCount) / float64(numSimulations)

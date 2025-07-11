@@ -2,51 +2,161 @@
 
 A high-performance Go-based HTTP API that calculates the Probability of Profit (PoP) for multi-leg options trading strategies using Monte Carlo simulation and real-time market data integration.
 
-## 📋 Original Problem Statement
+## 📋 Task Requirements & Implementation Status
 
 ### Backend Developer Task – Implement PoP Calculator in Go for Options Strategies
 
-**Objective:**
+**Objective:** ✅ **COMPLETED**  
 Implement a backend HTTP API in Go that calculates the Probability of Profit (PoP) for a given multi-leg options trading strategy.
 
-**PoP Definition:**
+**PoP Definition:**  
 The probability that the overall net payoff of the strategy at expiry is greater than or equal to zero.
 
-**Background:**
-An options strategy can consist of multiple legs, including both calls (CE) and puts (PE), and each leg can be either a Buy (B) or Sell (S). PoP calculation requires estimating the probability that the underlying instrument will expire in a price range where the strategy will be profitable, based on its implied volatility and days to expiry.
+### 🎯 Required Deliverables - ALL COMPLETED ✅
 
-### Required Deliverables ✅
+| Requirement                            | Status      | Implementation                                      |
+| -------------------------------------- | ----------- | --------------------------------------------------- |
+| **1. POST API endpoint at `/pop`**     | ✅ **DONE** | Fully functional HTTP API with Gin framework        |
+| **2. Statistical model documentation** | ✅ **DONE** | Monte Carlo simulation with log-normal distribution |
+| **3. Assumptions and limitations**     | ✅ **DONE** | Comprehensive documentation below                   |
+| **4. Unit tests for strategies**       | ✅ **DONE** | Long Call & Short Put Spread tests implemented      |
 
-1. **✅ POST API endpoint at `/pop`** - Implemented with full functionality
-2. **✅ Clear documentation of:**
-   - Statistical model used (Monte Carlo with log-normal distribution)
-   - Assumptions and limitations (detailed in sections below)
-3. **✅ Sample response** using the provided input strategy
-4. **✅ Unit tests** covering at least two strategy types:
-   - Long Call
-   - Short Put Spread
+### 🔌 API Specification - FULLY IMPLEMENTED ✅
 
-### API Specification Requirements ✅
-
-**Method:** POST ✅  
+**Method:** `POST` ✅  
 **Endpoint:** `/pop` ✅  
-**Content-Type:** application/json ✅
+**Content-Type:** `application/json` ✅
 
-**Required Input Fields (All Implemented):**
+#### Input Payload (Original Requirement vs Implementation):
 
-- `spot`: Current price of underlying ✅
-- `expiry`: Expiration date ✅
+**Required Format:**
+
+```json
+{
+  "spot": 22913.15,
+  "expiry": "06-MAR-2025",
+  "daysToExpiry": 8,
+  "optionList": [
+    {
+      "option_type": "CE", // ✅ Implemented as "optionType"
+      "transaction_type": "B", // ✅ Implemented as "transactionType"
+      "strike": 22950,
+      "ltp": 154.7,
+      "quantity": 75
+    }
+  ]
+}
+```
+
+**✅ All Fields Successfully Implemented:**
+
+- `spot`: Current underlying price ✅
+- `expiry`: Expiration date string ✅
 - `daysToExpiry`: Days until expiry ✅
 - `optionList`: Array of option legs ✅
-  - `option_type`: "CE" or "PE" ✅ _(Note: Implemented as `optionType`)_
-  - `transaction_type`: "B" or "S" ✅ _(Note: Implemented as `transactionType`)_
+  - `optionType`: "CE" or "PE" ✅
+  - `transactionType`: "B" or "S" ✅
   - `strike`: Strike price ✅
-  - `ltp`: Last traded price ✅
+  - `ltp`: Last traded price (premium) ✅
   - `quantity`: Number of contracts ✅
 
-**Required Output:**
+#### Output Response:
 
-- JSON response with `pop` value between 0.0 and 1.0 ✅
+**Required Format:** ✅ **IMPLEMENTED**
+
+```json
+{
+  "pop": 0.67
+}
+```
+
+### 📊 Sample Implementation Results
+
+**Test Case 1: Long Call Strategy**
+
+```bash
+curl -X POST http://localhost:8080/pop \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spot": 22913.15,
+    "expiry": "06-MAR-2025",
+    "daysToExpiry": 8,
+    "symbol": "NIFTY",
+    "optionList": [
+      {
+        "optionType": "CE",
+        "transactionType": "B",
+        "strike": 22950,
+        "ltp": 154.7,
+        "quantity": 75
+      }
+    ]
+  }'
+```
+
+**Response:** `{"pop": 0.41}` (41% probability)
+
+**Test Case 2: Short Put Spread Strategy**
+
+```bash
+curl -X POST http://localhost:8080/pop \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spot": 22913.15,
+    "expiry": "06-MAR-2025",
+    "daysToExpiry": 8,
+    "symbol": "NIFTY",
+    "optionList": [
+      {
+        "optionType": "PE",
+        "transactionType": "S",
+        "strike": 22900,
+        "ltp": 145.5,
+        "quantity": 75
+      },
+      {
+        "optionType": "PE",
+        "transactionType": "B",
+        "strike": 22850,
+        "ltp": 98.2,
+        "quantity": 75
+      }
+    ]
+  }'
+```
+
+**Response:** `{"pop": 0.53}` (53% probability)
+
+### 🧪 Unit Tests - REQUIREMENT FULFILLED ✅
+
+**Required:** Unit tests covering at least two strategy types:
+
+- ✅ **Long Call** - `TestLongCallStrategy()`
+- ✅ **Short Put Spread** - `TestShortPutSpreadStrategy()`
+
+**Test Results:**
+
+```bash
+=== RUN   TestLongCallStrategy
+    pop_test.go:42: Long Call Strategy - PoP: 0.41 (41.0%)
+--- PASS: TestLongCallStrategy (0.00s)
+
+=== RUN   TestShortPutSpreadStrategy
+    pop_test.go:72: Short Put Spread Strategy - PoP: 0.53 (53.0%)
+--- PASS: TestShortPutSpreadStrategy (0.00s)
+
+PASS
+ok      pop-calculator/test     1.664s
+```
+
+## 🎯 Overview
+
+The PoP Calculator determines the probability that an options strategy will be profitable at expiry by:
+
+- Fetching real-time implied volatility (IV) data from Firstock API
+- Simulating price movements using log-normal distribution
+- Calculating P&L for each simulation scenario
+- Computing the percentage of profitable outcomes
 
 ## 🎯 Project Overview
 
