@@ -56,15 +56,28 @@ go mod download
 
 ### 3. 🔐 Setup .env (Optional, for real-time IV)
 
+Create a `.env` file in the root directory:
+
 ```bash
-cat > .env << EOF
+# Copy from .env.example
+cp .env.example .env
+```
+
+Or create manually:
+
+```env
+# Firstock API Configuration (Optional - for real-time IV data)
 FIRSTOCK_USER_ID=your_user_id
 FIRSTOCK_PASSWORD=your_password
-FIRSTOCK_TOTP_SECRET=your_totp_key
+FIRSTOCK_TOTP_SECRET=your_totp_secret_key
 FIRSTOCK_API_KEY=your_api_key
 FIRSTOCK_VENDOR_CODE=your_vendor_code
-EOF
+
+# Server Configuration
+SERVER_PORT=8080
 ```
+
+**Note:** Without these credentials, the app will use fallback IV calculations.
 
 ### 4. 🚀 Run the Server
 
