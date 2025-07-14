@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-
+	"os"
 	"pop-calculator/controller"
 	"pop-calculator/firstock"
 
@@ -41,6 +41,11 @@ func main() {
 	
 	app.POST("/pop", controller.CalculatePoP)
 	
-	fmt.Println("Server starting on http://localhost:8080")
-	app.Run(":8080")
+	port := os.Getenv("SERVER_PORT")
+    if port == "" {
+        port = "8080"
+    }
+
+	fmt.Printf("Server starting on http://localhost:%s\n",port)
+	app.Run(":"+ port)
 }

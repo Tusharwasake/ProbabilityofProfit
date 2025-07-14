@@ -44,7 +44,6 @@ A high-performance **Go-based backend API** that calculates the **Probability of
 
 - Go 1.24.4+
 - Git installed
-- (Optional) Firstock account credentials for real IV
 
 ### 2. 📦 Setup Project
 
