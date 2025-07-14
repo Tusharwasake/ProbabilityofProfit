@@ -142,8 +142,16 @@ pop-calculator/
 ## 🧪 Unit Tests
 
 ```bash
-go test ./...
-```
+# Run all tests with verbose output
+go test ./test -v
+
+# Run specific test
+go test ./test -run TestLongCallStrategy -v
+
+# or
+go test ./test -run TestShortPutSpreadStrategy -v
+
+
 
 ```
 === RUN   TestLongCallStrategy
