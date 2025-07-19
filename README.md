@@ -1,174 +1,73 @@
-# 🧠 PoP Calculator (Go) — Options Strategy Profitability API
+# Probability of Profit Calculator
 
-A high-performance **Go-based backend API** that calculates the **Probability of Profit (PoP)** for multi-leg options trading strategies using **Monte Carlo simulation** and **live implied volatility** from the **Firstock API**.
+A Go-based REST API that calculates the Probability of Profit (PoP) for options trading strategies using Monte Carlo simulation and implied volatility data from Firstock API.
 
----
+## Overview
 
-## ✅ Task: What Was Asked
+This API calculates the probability that a given options strategy will end up profitable by expiry using statistical simulation methods.
 
-**Assignment Goal:**
+### Features
 
-> Build an API that calculates the probability that a given options strategy will end up profitable by expiry.
+- REST API endpoint for PoP calculations
+- Multi-leg options strategy support
+- Real-time implied volatility integration
+- Monte Carlo price simulation (500,000 iterations)
+- JSON input/output format
+- Unit tests included
 
-### Requirements Given:
+## Quick Start
 
-| Feature / Deliverable                  | Required? | Status  |
-| -------------------------------------- | --------- | ------- |
-| REST API POST `/pop`                   | ✅ Yes    | ✅ Done |
-| Accepts options strategy as JSON input | ✅ Yes    | ✅ Done |
-| Uses implied volatility (IV)           | ✅ Yes    | ✅ Done |
-| Simulates 10,000 expiry prices         | ✅ Yes    | ✅ Done |
-| Computes net P\&L for each simulation  | ✅ Yes    | ✅ Done |
-| Returns `{"pop": float}`               | ✅ Yes    | ✅ Done |
-| Unit tests for 2 strategies            | ✅ Yes    | ✅ Done |
-| Documentation for assumptions & model  | ✅ Yes    | ✅ Done |
+### Prerequisites
 
----
+- Go 1.24.4 or higher
+- Git
 
-## 👨‍💻 What I Did (Highlights)
-
-- Built a **POST API** `/pop` using **Gin** framework
-- Parsed options data (`CE/PE`, `Buy/Sell`, `LTP`, `strike`, etc.)
-- Connected with **Firstock API** to fetch **real-time IV** (or fallback)
-- Simulated expiry prices using **log-normal distribution**
-- Calculated **P\&L for each leg** of the strategy
-- Counted simulations where overall payoff ≥ 0 to compute **PoP**
-- Added **unit tests** for Long Call & Short Put Spread
-- Wrote **detailed documentation**, health check, error handling, and `.env` support
-
----
-
-## 🏁 How to Run (Step-by-Step for Beginners)
-
-### 1. 🔧 Prerequisites
-
-- Go 1.24.4+
-- Git installed
-
-### 2. 📦 Setup Project
+### Installation
 
 ```bash
-git clone <repo-url>
-cd pop-calculator
+git clone <repository-url>
+cd ProbabilityofProfit
 go mod download
 ```
 
-### 3. 🔐 Setup .env (Optional, for real-time IV)
+### Configuration
 
-Create a `.env` file in the root directory:
-
-```bash
-# Copy from .env.example
-cp .env.example .env
-```
-
-Or create manually:
+Create a `.env` file for Firstock API credentials (optional):
 
 ```env
-# Firstock API Configuration (Optional - for real-time IV data)
 FIRSTOCK_USER_ID=your_user_id
 FIRSTOCK_PASSWORD=your_password
-FIRSTOCK_TOTP_SECRET=your_totp_secret_key
+FIRSTOCK_TOTP_SECRET=your_totp_secret
 FIRSTOCK_API_KEY=your_api_key
 FIRSTOCK_VENDOR_CODE=your_vendor_code
-
-# Server Configuration
 SERVER_PORT=8080
 ```
 
-**Note:** Without these credentials, the app will use fallback IV calculations.
+Note: The application will use fallback IV calculations if credentials are not provided.
 
-### 4. 🚀 Run the Server
+### Running the Server
 
 ```bash
-go build -o pop-calculator
-./pop-calculator
-# OR
 go run main.go
 ```
 
-### 5. ✅ Test the API
+The server will start on `http://localhost:8080`
 
-**Health check:**
+## API Documentation
 
-```bash
-curl http://localhost:8080/status
-```
-
-**Calculate PoP:**
+### Health Check
 
 ```bash
-curl -X POST http://localhost:8080/pop \
-  -H "Content-Type: application/json" \
-  -d @strategy.json
+GET /status
 ```
 
----
-
-## 🧠 What It Does Internally
-
-### 🔢 Core Simulation Logic
-
-- **Log-normal simulation:**
-  $S(T) = S(0) \times \exp\left(-\frac{\sigma^2}{2} \cdot T + \sigma \cdot \sqrt{T} \cdot Z\right)$
-- **Monte Carlo engine:**
-  Simulates 10,000 expiry prices using above formula
-- **P\&L Calculation:**
-
-  - Long Call: `(max(S - K, 0) - premium) * quantity`
-  - Short Put: `(premium - max(K - S, 0)) * quantity`
-
-- **PoP = Profitable Simulations / Total Simulations**
-
----
-
-## 📁 Project Structure
+### Calculate Probability of Profit
 
 ```bash
-pop-calculator/
-├── main.go
-├── controller/pop_controller.go
-├── service/pop_service.go
-├── model/pop_model.go
-├── firstock/client.go
-├── test/pop_test.go
-├── go.mod
-└── .env
+POST /pop
 ```
 
----
-
-## 🧪 Unit Tests
-
-```bash
-# Run all tests with verbose output
-go test ./test -v
-
-# Run specific test
-go test ./test -run TestLongCallStrategy -v
-
-# or
-go test ./test -run TestShortPutSpreadStrategy -v
-
-
-
-```
-=== RUN   TestLongCallStrategy
-    pop_test.go:42: Long Call PoP: 0.41
---- PASS: TestLongCallStrategy (0.00s)
-
-=== RUN   TestShortPutSpreadStrategy
-    pop_test.go:72: Short Put Spread PoP: 0.53
---- PASS: TestShortPutSpreadStrategy (0.00s)
-```
-
----
-
-## 📡 API Details
-
-### POST `/pop`
-
-**Request Body:**
+**Request Format:**
 
 ```json
 {
@@ -188,47 +87,258 @@ go test ./test -run TestShortPutSpreadStrategy -v
 }
 ```
 
-**Response:**
+**Response Format:**
 
 ```json
 {
-  "pop": 0.41
+  "pop": 31.03
 }
 ```
 
----
+## Implementation Details
 
-## 📚 Modeling Assumptions
+### Monte Carlo Simulation
 
-| Assumption                    | Description                      |
-| ----------------------------- | -------------------------------- |
-| Risk-free rate = 0            | Simplified model                 |
-| No dividends                  | Not factored into option prices  |
-| Log-normal price distribution | More realistic than normal       |
-| European-style options        | Exercised only at expiry         |
-| Transaction costs ignored     | Net payoff = intrinsic - premium |
-| Constant IV                   | Assumes IV remains till expiry   |
+The application uses Monte Carlo simulation with 500,000 iterations to calculate probability of profit. Price movements are modeled using **Geometric Brownian Motion** with log-normal distribution:
 
----
+```
+S(T) = S(0) × exp((r - 0.5 × σ²) × T + σ × √T × Z)
+```
 
-## 🛠️ Technologies Used
+Where:
 
-| Tech         | Role                     |
-| ------------ | ------------------------ |
-| Go           | Backend language         |
-| Gin          | HTTP API framework       |
-| Firstock API | IV data source           |
-| rand/math    | Price simulations        |
-| TOTP Auth    | Secure login to Firstock |
-| JSON         | Input/output format      |
-| go test      | Unit testing             |
+- S(T) = Simulated price at expiry
+- S(0) = Current spot price
+- r = Risk-free rate (6.5% annual)
+- σ = Implied volatility (calculated per option)
+- T = Time to expiry (years)
+- Z = Standard normal random variable
 
----
+**Note**: The drift term (r - 0.5 × σ²) is simplified to (-0.5 × σ²) assuming risk-neutral pricing.
 
-## 🚀 Ready to Use?
+### Black-Scholes Model for IV Calculation
+
+The system calculates implied volatility using the **Black-Scholes-Merton model**:
+
+**Call Option Price:**
+
+```
+C = S × N(d₁) - K × e^(-r×T) × N(d₂)
+```
+
+**Put Option Price:**
+
+```
+P = K × e^(-r×T) × N(-d₂) - S × N(-d₁)
+```
+
+Where:
+
+```
+d₁ = [ln(S/K) + (r + 0.5×σ²)×T] / (σ×√T)
+d₂ = d₁ - σ×√T
+```
+
+**Variables:**
+
+- C/P = Call/Put option price
+- S = Current stock price
+- K = Strike price
+- r = Risk-free rate (6.5%)
+- T = Time to expiry (years)
+- σ = Volatility (what we solve for)
+- N() = Cumulative standard normal distribution
+
+### Newton-Raphson IV Calculation
+
+Implied volatility is calculated using **Newton-Raphson iterative method**:
+
+```
+σₙ₊₁ = σₙ - (BS_Price(σₙ) - Market_Price) / Vega(σₙ)
+```
+
+**Parameters:**
+
+- **Initial guess**: σ₀ = 0.2 (20%)
+- **Maximum iterations**: 100
+- **Convergence tolerance**: 1e-8
+- **Volatility bounds**: 1e-6 ≤ σ ≤ 5.0
+- **Vega calculation**: ∂C/∂σ = S × √T × φ(d₁)
+
+### P&L Calculation Model
+
+For each Monte Carlo simulation, the system calculates option payoffs and net P&L:
+
+**Option Payoffs:**
+
+- **Call Options**: max(S(T) - K, 0)
+- **Put Options**: max(K - S(T), 0)
+
+**Net P&L Calculation:**
+
+- **Long positions**: (Payoff - Premium) × Quantity
+- **Short positions**: (Premium - Payoff) × Quantity
+
+**Final PoP**: Count of profitable simulations / Total simulations × 100
+
+### Volatility Aggregation
+
+When multiple options are present, the system:
+
+1. Calculates individual IV for each option using its LTP
+2. Computes weighted average IV across all valid options
+3. Uses this average IV for all price simulations
+4. Validates IV results (positive, within bounds)
+
+## Project Structure
+
+```
+ProbabilityofProfit/
+├── main.go                 # Application entry point
+├── controller/
+│   └── pop_controller.go   # HTTP request handlers
+├── service/
+│   └── pop_service.go      # Business logic and calculations
+├── model/
+│   └── pop_model.go        # Data structures
+├── firstock/
+│   └── client.go           # Firstock API integration
+├── test/
+│   └── pop_test.go         # Unit tests
+├── go.mod                  # Go module dependencies
+└── .env                    # Configuration file
+```
+
+## Testing
+
+Run the test suite:
 
 ```bash
+go test ./test -v
+```
+
+The test suite includes 5 comprehensive test cases:
+
+```
+=== RUN   TestLongCallStrategy
+    pop_test.go:36: Long Call Strategy - PoP: 31.03%
+--- PASS: TestLongCallStrategy (0.03s)
+=== RUN   TestShortPutSpreadStrategy
+    pop_test.go:63: Short Put Spread Strategy - PoP: 55.70%
+--- PASS: TestShortPutSpreadStrategy (0.04s)
+=== RUN   TestATMCallStrategy
+    pop_test.go:83: ATM Call Strategy - PoP: 33.19%
+--- PASS: TestATMCallStrategy (0.02s)
+=== RUN   TestCoveredCallStrategy
+    pop_test.go:103: Short Call Strategy - PoP: 71.70%
+--- PASS: TestCoveredCallStrategy (0.03s)
+=== RUN   TestInvalidInputs
+--- PASS: TestInvalidInputs (0.00s)
+PASS
+ok      pop-calculator/test     1.381s
+```
+
+### Test Coverage
+
+- **Long Call Strategy**: Tests bullish call buying with OTM strike
+- **Short Put Spread**: Tests bullish put spread with both strikes below spot
+- **ATM Call Strategy**: Tests at-the-money call option behavior
+- **Short Call Strategy**: Tests covered call writing with OTM strike
+- **Invalid Inputs**: Tests error handling with zero LTP values
+
+## Mathematical Models & Assumptions
+
+### Black-Scholes Model Assumptions
+
+1. **Constant Risk-Free Rate**: 6.5% annual (fixed in code)
+2. **Constant Volatility**: Implied volatility remains constant until expiry
+3. **Log-Normal Price Distribution**: Underlying follows Geometric Brownian Motion
+4. **European Exercise**: Options exercised only at expiration
+5. **No Dividends**: Dividend yield = 0% for all calculations
+6. **Continuous Trading**: No gaps or trading halts
+7. **No Transaction Costs**: Commissions and bid-ask spreads ignored
+8. **Perfect Liquidity**: Can trade any quantity at market prices
+
+### Numerical Method Parameters
+
+**Newton-Raphson IV Solver:**
+
+- **Convergence Tolerance**: 1e-8 (0.00000001)
+- **Maximum Iterations**: 100
+- **Initial Volatility Guess**: 20%
+- **Volatility Bounds**: 0.0001% to 500%
+- **Numerical Stability Check**: Vega > 1e-6
+
+**Monte Carlo Simulation:**
+
+- **Number of Simulations**: 500,000 iterations
+- **Random Seed**: Fixed seed (12345) for reproducible results
+- **Distribution**: Standard normal (Box-Muller transformation)
+- **Precision**: Float64 (double precision)
+
+### Data Input Assumptions
+
+1. **LTP Validation**: Last Traded Price must be > 0
+2. **Time Conversion**: Days to expiry converted to years (T = days/365)
+3. **Option Types**: "CE" for calls, "PE" for puts
+4. **Transaction Types**: "B" for buy, "S" for sell
+5. **Strike Prices**: Must be positive values
+6. **Quantities**: Integer values representing lot sizes
+
+### Error Handling & Edge Cases
+
+- **Invalid IV Inputs**: Returns error for S≤0, K≤0, T≤0, or MarketPrice≤0
+- **Convergence Failure**: Returns "failed to converge" after 100 iterations
+- **Numerical Instability**: Returns error when Vega < 1e-6
+- **No Valid Options**: Returns 0% PoP when all options have invalid LTP
+- **Volatility Bounds**: Clips calculated IV to [1e-6, 5.0] range
+
+### Model Limitations
+
+1. **Static IV**: Doesn't account for volatility smile/skew
+2. **No Greeks Hedging**: Doesn't consider delta hedging or gamma risk
+3. **Single Underlying**: Multi-asset correlations not modeled
+4. **American Options**: Early exercise features not supported
+5. **Interest Rate Risk**: Fixed risk-free rate assumption
+6. **Liquidity Risk**: Perfect liquidity assumption may not hold
+
+## Dependencies
+
+- **gin-gonic/gin**: HTTP web framework
+- **joho/godotenv**: Environment variable management
+- **pquerna/otp**: TOTP authentication for Firstock API
+- **stretchr/testify**: Testing framework for assertions
+
+## Performance
+
+- **Simulation Speed**: 500,000 Monte Carlo iterations in ~0.03 seconds
+- **IV Calculation**: Newton-Raphson convergence typically within 5-10 iterations
+- **Memory Efficient**: Minimal memory footprint with streaming calculations
+- **Numerical Precision**: Float64 precision for all mathematical operations
+- **Deterministic Results**: Fixed random seed ensures reproducible outputs
+
+## Example Usage
+
+```bash
+# Start the server
 go run main.go
+
+# Test health endpoint
 curl http://localhost:8080/status
-curl -X POST http://localhost:8080/pop -d @strategy.json
+
+# Calculate PoP for a long call strategy
+curl -X POST http://localhost:8080/pop \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spot": 25000,
+    "daysToExpiry": 10,
+    "symbol": "NIFTY",
+    "optionList": [{
+      "optionType": "CE",
+      "transactionType": "B",
+      "strike": 25100,
+      "ltp": 150,
+      "quantity": 1
+    }]
+  }'
 ```

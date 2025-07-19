@@ -17,13 +17,11 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-
 	// Initialize Firstock client
 	if err := firstock.InitializeFromEnv(); err != nil {
 		log.Printf("Firstock authentication failed: %v", err)
 		log.Println("Using fallback calculations")
 	}
-
 
 	app := gin.Default()
 	
@@ -38,14 +36,15 @@ func main() {
 			"auth":   status,
 		})
 	})
-	
+
+	// Register the /pop route only once
 	app.POST("/pop", controller.CalculatePoP)
 	
 	port := os.Getenv("SERVER_PORT")
-    if port == "" {
-        port = "8080"
-    }
+	if port == "" {
+		port = "8080"
+	}
 
-	fmt.Printf("Server starting on http://localhost:%s\n",port)
-	app.Run(":"+ port)
+	fmt.Printf("Server starting on http://localhost:%s\n", port)
+	app.Run(":" + port)
 }

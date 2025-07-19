@@ -2,134 +2,108 @@ package service
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"pop-calculator/firstock"
 	"pop-calculator/model"
-	"time"
 )
 
-// func CalculatePoPValue(spot float64, daysToExpiry float64, expiryDate string, symbol string, optionList []model.OptionLeg) float64 {
-
-// 	const numSimulations = 10000
-
-// 	T := daysToExpiry / 365
-// 	mean := spot
-
-// 	// Get real-time IV for each option leg using Firstock
-
-// 	optionIVs := make(map[string]float64)
-
-// 	for _, leg := range optionList {
-
-// 		optionKey := fmt.Sprintf("%.0f_%s", leg.Strike, leg.OptionType)
-
-//         if _, exists := optionIVs[optionKey];
-// 		!exists {
-//             optionSymbol := formatOptionSymbol(symbol, expiryDate, leg.Strike, leg.OptionType)
-//             exchange := getExchangeForSymbol(symbol)
-//             optionIVs[optionKey] = firstock.GetIV(exchange, optionSymbol)
-//         }
-//     }
-
-// 	// Use average IV for market simulation
-// 	totalIV := 0.0
-// 	for _, iv := range optionIVs {
-// 		totalIV += iv
-// 	}
-
-// 	avgIV := totalIV / float64(len(optionIVs))
-
-// 	if avgIV == 0 {
-// 		avgIV = 0.2 // fallback
-// 	}
-
-// 	stdDev := spot * avgIV * math.Sqrt(T)
-
-// 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-// 	profitableCount := 0
-
-// 	for i:= 0; i < numSimulations; i++ {
-
-// 		//  This assumes price can go negative
-// 		// simulatedPrice := r.NormFloat64()*stdDev + mean
-
-// 	// Stock prices should be log-normally distributed
-
-// 	simulatedPrice := spot * math.Exp((r.NormFloat64()*avgIV*math.Sqrt(T)) - (0.5*avgIV*avgIV*T))
-
-// 	pnl := calculatePnLWithIV(simulatedPrice, optionList, optionIVs, expiryDate, symbol)
-// 		if pnl >= 0 {
-// 			profitableCount++
-// 		}
-// 	}
-
-// 	pop := float64(profitableCount) / float64(numSimulations)
-
-// 	return math.Round(pop*100) / 100
-// }
-
 func CalculatePoPValue(spot float64, daysToExpiry float64, expiryDate string, symbol string, optionList []model.OptionLeg) float64 {
-    const numSimulations = 10000
-    T := daysToExpiry / 365
+	const numSimulations = 500000
+	T := daysToExpiry / 365
 
-    // mean := spot
+	profitableCount := 0
+	r := rand.New(rand.NewSource(12345))
 
-    // Get real-time IV for each unique option
-    optionIVs := make(map[string]float64)
-    
-    for _, leg := range optionList {
-        optionKey := fmt.Sprintf("%.0f_%s", leg.Strike, leg.OptionType)
-        if _, exists := optionIVs[optionKey]; !exists {
-            optionSymbol := formatOptionSymbol(symbol, expiryDate, leg.Strike, leg.OptionType)
-            exchange := getExchangeForSymbol(symbol)
-            optionIVs[optionKey] = firstock.GetIV(exchange, optionSymbol)
-        }
-    }
-    
-    // Calculate average IV with safety check
-    totalIV := 0.0
-    for _, iv := range optionIVs {
-        totalIV += iv
-    }
-    
-    var avgIV float64
-    if len(optionIVs) == 0 {
-        avgIV = 0.2 // fallback
-    } else {
-        avgIV = totalIV / float64(len(optionIVs))
-        if avgIV == 0 {
-            avgIV = 0.2 // fallback
-        }
-    }
-    
-    r := rand.New(rand.NewSource(time.Now().UnixNano()))
-    profitableCount := 0
-    
-    for i := 0; i < numSimulations; i++ {
+	optionIVs := getOptionIVs(optionList, spot, T)
 
-		// This assumes price can go negative
-		// simulatedPrice := r.NormFloat64()*stdDev + mean
+	totalIV := 0.0
+	validIVCount := 0
+	for _, iv := range optionIVs {
+		if iv > 0 {
+			totalIV += iv
+			validIVCount++
+		}
+	}
 
-        // Correct log-normal price simulation
-        randomFactor := r.NormFloat64()
-        simulatedPrice := spot * math.Exp((randomFactor*avgIV*math.Sqrt(T)) - (0.5*avgIV*avgIV*T))
-        
-        pnl := calculatePnLWithIV(simulatedPrice, optionList, optionIVs, expiryDate, symbol)
-        if pnl >= 0 {
-            profitableCount++
-        }
+	var avgIV float64
+	if validIVCount > 0 {
+		avgIV = totalIV / float64(validIVCount)
+		log.Printf("Using average IV: %.4f (%.2f%%) from %d options", avgIV, avgIV*100, validIVCount)
+	} else {
+		// If no IV could be calculated, we cannot proceed with accurate simulation
+		log.Printf("Error: Cannot calculate PoP - no valid IV data available")
+		log.Printf("Ensure all options have valid LTP (Last Traded Price) values")
+		return 0.0
+	}
 
-    }
-    
-    pop := float64(profitableCount) / float64(numSimulations)
-    return math.Round(pop*100) / 100
+	for i := 0; i < numSimulations; i++ {
+		z := r.NormFloat64()
+		simulatedPrice := spot * math.Exp((z*avgIV*math.Sqrt(T))-(0.5*avgIV*avgIV*T))
+
+		pnl := calculatePnLWithIV(simulatedPrice, optionList)
+		if pnl >= 0 {
+			profitableCount++
+		}
+	}
+	result := float64(profitableCount) / float64(numSimulations) * 100
+	return math.Round(result*100) / 100
 }
 
-func calculatePnLWithIV(price float64, optionList []model.OptionLeg, optionIVs map[string]float64, expiryDate string, symbol string) float64 {
+// getOptionIVs calculates IV for each option using Black-Scholes
+
+func getOptionIVs(optionList []model.OptionLeg, spot float64, timeToExpiry float64) map[string]float64 {
+	optionIVs := make(map[string]float64)
+	riskFreeRate := 0.065 // consider 6.5%
+
+	log.Printf("Calculating IV for %d options", len(optionList))
+
+	for _, leg := range optionList {
+		strikeKey := fmt.Sprintf("%.0f_%s", leg.Strike, leg.OptionType)
+
+		if leg.LTP <= 0 {
+			log.Printf("Skipping %s: invalid LTP %.2f", strikeKey, leg.LTP)
+			continue
+		}
+
+		isCall := leg.OptionType == "CE"
+
+		calculatedIV, err := firstock.CalculateImpliedVolatility(
+			spot,
+			leg.Strike,
+			timeToExpiry,
+			riskFreeRate,
+			leg.LTP,
+			isCall,
+		)
+
+		if err != nil {
+			log.Printf("Failed to calculate IV for %s (LTP %.2f): %v", strikeKey, leg.LTP, err)
+			continue
+		}
+
+		if calculatedIV <= 0 {
+			log.Printf("Invalid IV result for %s: %.4f from LTP %.2f", strikeKey, calculatedIV, leg.LTP)
+			continue
+		}
+
+		optionIVs[strikeKey] = calculatedIV
+		log.Printf("Calculated IV for %s: %.4f (%.2f%%) from LTP %.2f", strikeKey, calculatedIV, calculatedIV*100, leg.LTP)
+	}
+
+	if len(optionIVs) == 0 {
+		log.Printf("Warning: No valid IV calculations - all options lack proper LTP data")
+	} else {
+		log.Printf("Successfully calculated IV for %d out of %d options", len(optionIVs), len(optionList))
+	}
+
+	return optionIVs
+}
+
+func calculatePnLWithIV(price float64, optionList []model.OptionLeg) float64 {
 	totalPnL := 0.0
-	
+
 	for _, leg := range optionList {
 		var payoff float64
 
@@ -142,31 +116,16 @@ func calculatePnLWithIV(price float64, optionList []model.OptionLeg, optionIVs m
 			continue
 		}
 
+		adjustedLTP := leg.LTP
+
 		switch leg.TransactionType {
 		case "B":
-			totalPnL += (payoff - leg.LTP) * float64(leg.Quantity)
+			totalPnL += (payoff - adjustedLTP) * float64(leg.Quantity)
 		case "S":
-			totalPnL += (leg.LTP - payoff) * float64(leg.Quantity)
+			totalPnL += (adjustedLTP - payoff) * float64(leg.Quantity)
 		}
 	}
 
 	return totalPnL
 }
 
-// formatOptionSymbol formats an option symbol for Firstock API
-func formatOptionSymbol(symbol, expiryDate string, strike float64, optionType string) string {
-	strikeStr := fmt.Sprintf("%.0f", strike)
-	return fmt.Sprintf("%s%s%s%s", symbol, expiryDate, strikeStr, optionType)
-}
-
-// getExchangeForSymbol returns the appropriate exchange for a given symbol
-func getExchangeForSymbol(symbol string) string {
-	switch symbol {
-	case "NIFTY", "BANKNIFTY", "FINNIFTY":
-		return "NFO"
-	case "SENSEX", "BANKEX":
-		return "BFO"
-	default:
-		return "NFO"
-	}
-}

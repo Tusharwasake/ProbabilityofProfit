@@ -5,11 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/pquerna/otp/totp"
@@ -20,7 +21,6 @@ var JKey string
 var UserID string
 
 const BaseURL = "https://connect.thefirstock.com/api/V4"
-
 
 type LoginRequest struct {
 	UserID     string `json:"userId"`
@@ -40,59 +40,6 @@ type LoginResponse struct {
 		Email      string `json:"email"`
 	} `json:"data"`
 }
-
-
-
-type QuoteRequest struct {
-	UserID        string `json:"userId"`
-	Exchange      string `json:"exchange"`
-	TradingSymbol string `json:"tradingSymbol"`
-	JKey          string `json:"jKey"`
-}
-
-
-type QuoteResponse struct {
-	Status string `json:"status"`
-	Data   struct {
-		Exchange      string  `json:"exchange"`
-		TradingSymbol string  `json:"tradingSymbol"`
-		LTP           float64 `json:"lp"`
-		Open          float64 `json:"o"`
-		High          float64 `json:"h"`
-		Low           float64 `json:"l"`
-		Close         float64 `json:"c"`
-		Volume        int64   `json:"v"`
-		OI            float64 `json:"oi"`
-		TotalBuyQty   int64   `json:"tbq"`
-		TotalSellQty  int64   `json:"tsq"`
-		AvgPrice      float64 `json:"ap"`
-		LowerCircuit  float64 `json:"lc"`
-		UpperCircuit  float64 `json:"uc"`
-		YearlyHigh    float64 `json:"yh"`
-		YearlyLow     float64 `json:"yl"`
-	} `json:"data"`
-}
-
-
-type OptionGreekRequest struct {
-	UserID        string `json:"userId"`
-	Exchange      string `json:"exchange"`
-	TradingSymbol string `json:"tradingSymbol"`
-	JKey          string `json:"jKey"`
-}
-
-
-type OptionGreekResponse struct {
-	Status string `json:"status"`
-	Data   struct {
-		Delta float64 `json:"delta"`
-		Gamma float64 `json:"gamma"`
-		Theta float64 `json:"theta"`
-		Vega  float64 `json:"vega"`
-		IV    float64 `json:"iv"`
-	} `json:"data"`
-}
-
 
 func hashPassword(password string) string {
 	hasher := sha256.New()
@@ -130,13 +77,9 @@ func Login(userID, password, totp, apiKey, vendorCode string) (string, error) {
 
 	// Set proper headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "Firstock-Go-Client/1.0")
 
-	client := &http.Client{Timeout: 30 * time.Second}    
-	//"&" create object and return pointer of that so method can be used  (but go automatically convert to & if don't write it)
+	client := &http.Client{Timeout: 30 * time.Second}
 	
-
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to make login request: %w", err)
@@ -170,145 +113,92 @@ func Login(userID, password, totp, apiKey, vendorCode string) (string, error) {
 	return JKey, nil
 }
 
-// GetQuote fetches real-time quote data for a given symbol
+// normalCDF calculates cumulative standard normal distribution
+func normalCDF(x float64) float64 {
+	return 0.5 * (1.0 + math.Erf(x/math.Sqrt(2)))
+}
 
-func GetQuote(exchange, tradingSymbol string) (*QuoteResponse, error) {
-	if JKey == "" {
-		return nil, fmt.Errorf("not authenticated - please login first")
+// normalPDF calculates standard normal probability density function
+func normalPDF(x float64) float64 {
+	return math.Exp(-0.5*x*x) / math.Sqrt(2*math.Pi)
+}
+
+// blackScholesPrice calculates theoretical option price
+func blackScholesPrice(S, K, T, r, sigma float64, isCall bool) float64 {
+	if T <= 0 {
+		if isCall {
+			return math.Max(S-K, 0)
+		}
+		return math.Max(K-S, 0)
 	}
-
-	quoteReq := QuoteRequest{
-		UserID:        UserID,
-		Exchange:      exchange,
-		TradingSymbol: tradingSymbol,
-		JKey:          JKey,
-	}
-
-	jsonData, err := json.Marshal(quoteReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal quote request: %w", err)
-	}
-
-	resp, err := http.Post(BaseURL+"/getQuote", "application/json", bytes.NewBuffer(jsonData))
-	// new buffer []byte → io.Reader
-	if err != nil {
-		return nil, fmt.Errorf("failed to make quote request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	var quoteResp QuoteResponse
-
-	if err := json.Unmarshal(body, &quoteResp); 
 	
-	err != nil {
-		return nil, fmt.Errorf("failed to unmarshal quote response: %w", err)
+	d1 := (math.Log(S/K) + (r+0.5*sigma*sigma)*T) / (sigma * math.Sqrt(T))
+	d2 := d1 - sigma*math.Sqrt(T)
+	
+	if isCall {
+		return S*normalCDF(d1) - K*math.Exp(-r*T)*normalCDF(d2)
 	}
-
-	if quoteResp.Status != "success" {
-		return nil, fmt.Errorf("quote request failed: %s", string(body))
-	}
-
-	return &quoteResp, nil
+	return K*math.Exp(-r*T)*normalCDF(-d2) - S*normalCDF(-d1)
 }
 
-// GetOptionGreek fetches option Greeks including IV for a given option symbol
-func GetOptionGreek(exchange, tradingSymbol string) (*OptionGreekResponse, error) {
-
-	if JKey == "" {
-		return nil, fmt.Errorf("not authenticated - please login first")
+// vega calculates option's sensitivity to volatility
+func vega(S, K, T, r, sigma float64) float64 {
+	if T <= 0 {
+		return 0
 	}
-
-	greekReq := OptionGreekRequest{
-		UserID:        UserID,
-		Exchange:      exchange,
-		TradingSymbol: tradingSymbol,
-		JKey:          JKey,
-	}
-
-	jsonData, err := json.Marshal(greekReq)  
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal option Greek request: %w", err)
-	}
-
-	resp, err := http.Post(BaseURL+"/optionGreek", "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to make option Greek request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	var greekResp OptionGreekResponse
-
-	if err := json.Unmarshal(body, &greekResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal option Greek response: %w", err)
-	}
-
-	if greekResp.Status != "success" {
-		return nil, fmt.Errorf("option Greek request failed: %s", string(body))
-	}
-
-	return &greekResp, nil
+	
+	d1 := (math.Log(S/K) + (r+0.5*sigma*sigma)*T) / (sigma * math.Sqrt(T))
+	return S * math.Sqrt(T) * normalPDF(d1)
 }
 
-// GetIV fetches the implied volatility for a given option symbol
+// CalculateImpliedVolatility calculates Black-Scholes implied volatility using Newton-Raphson
 
-func GetIV(exchange, tradingSymbol string) float64 {
-
-	greekResp, err := GetOptionGreek(exchange, tradingSymbol)
-	if err == nil && greekResp.Data.IV > 0 {
-		return greekResp.Data.IV
+func CalculateImpliedVolatility(S, K, T, r, marketPrice float64, isCall bool) (float64, error) {
+	const (
+		maxIter   = 100
+		tolerance = 1e-8
+		minVol    = 1e-6
+		maxVol    = 5.0
+	)
+	
+	// Validate inputs
+	if S <= 0 || K <= 0 || T <= 0 || marketPrice <= 0 {
+		return 0, errors.New("invalid input parameters")
 	}
-
-	quoteResp, err := GetQuote(exchange, tradingSymbol)
-	if err != nil {
-		return calculateFallbackIV(exchange, tradingSymbol)
+	
+	// Initial guess
+	sigma := 0.2
+	
+	// Newton-Raphson iteration
+	for i := 0; i < maxIter; i++ {
+		price := blackScholesPrice(S, K, T, r, sigma, isCall)
+		vegaVal := vega(S, K, T, r, sigma)
+		
+		if vegaVal < minVol {
+			return 0, errors.New("numerical instability")
+		}
+		
+		priceDiff := price - marketPrice
+		
+		if math.Abs(priceDiff) < tolerance {
+			return sigma, nil
+		}
+		
+		sigma = sigma - priceDiff/vegaVal
+		
+		// Keep sigma in bounds
+		if sigma < minVol {
+			sigma = minVol
+		} else if sigma > maxVol {
+			sigma = maxVol
+		}
 	}
-
-
-	return calculateIVFromPremium(quoteResp.Data.LTP)
-}
-
-func calculateIVFromPremium(premium float64) float64 {
-
-	baseIV := 0.15 // Base IV of 15%
-	premiumFactor := premium / 100.0
-
-	if premiumFactor > 2.0 {
-		return baseIV + 0.20 
-	} else if premiumFactor > 1.0 {
-		return baseIV + 0.10
-	} else if premiumFactor > 0.5 {
-		return baseIV + 0.05 
-	} else {
-		return baseIV 
-	}
-}
-
-
-func calculateFallbackIV(exchange, tradingSymbol string) float64 {
-	baseIV := 0.15
-
-	if len(tradingSymbol) > 10 {
-		baseIV += 0.08
-	}
-
-	if exchange == "NFO" {
-		baseIV += 0.05 
-	}
-
-	return baseIV
+	
+	return 0, errors.New("failed to converge")
 }
 
 // InitializeFromEnv initializes Firstock client from environment variables
+
 func InitializeFromEnv() error {
 	userID := os.Getenv("FIRSTOCK_USER_ID")
 	password := os.Getenv("FIRSTOCK_PASSWORD")
@@ -321,32 +211,13 @@ func InitializeFromEnv() error {
 	}
 
 	totpCode, err := generateTOTP(totpSecret)
-
 	if err != nil {
 		return fmt.Errorf("failed to generate TOTP: %w", err)
 	}
 
 	jKey, err := Login(userID, password, totpCode, apiKey, vendorCode)
-
 	if err != nil {
-		// Try alternative time windows
-		prevTime := time.Now().Add(-30 * time.Second)
-		if prevCode, err2 := totp.GenerateCode(strings.ToUpper(strings.ReplaceAll(totpSecret, " ", "")), prevTime); 
-		err2 == nil {
-			jKey, err = Login(userID, password, prevCode, apiKey, vendorCode)
-		}
-		
-		if err != nil {
-			nextTime := time.Now().Add(30 * time.Second)
-			if nextCode, err3 := totp.GenerateCode(strings.ToUpper(strings.ReplaceAll(totpSecret, " ", "")), nextTime); 
-			err3 == nil {
-				jKey, err = Login(userID, password, nextCode, apiKey, vendorCode)
-			}
-		}
-		
-		if err != nil {
-			return fmt.Errorf("authentication failed: %w", err)
-		}
+		return fmt.Errorf("authentication failed: %w", err)
 	}
 
 	JKey = jKey
