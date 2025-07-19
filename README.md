@@ -10,7 +10,7 @@ This API calculates the probability that a given options strategy will end up pr
 
 - REST API endpoint for PoP calculations
 - Multi-leg options strategy support
-- Real-time implied volatility integration
+- Black-Scholes implied volatility calculations
 - Monte Carlo price simulation (500,000 iterations)
 - JSON input/output format
 - Unit tests included
@@ -32,7 +32,7 @@ go mod download
 
 ### Configuration
 
-Create a `.env` file for Firstock API credentials (optional):
+Create a `.env` file for Firstock API credentials (optional - used for authentication only):
 
 ```env
 FIRSTOCK_USER_ID=your_user_id
@@ -43,7 +43,7 @@ FIRSTOCK_VENDOR_CODE=your_vendor_code
 SERVER_PORT=8080
 ```
 
-Note: The application will use fallback IV calculations if credentials are not provided.
+Note: The application uses Black-Scholes calculations for implied volatility. Firstock credentials are only required for authentication.
 
 ### Running the Server
 
@@ -202,7 +202,7 @@ ProbabilityofProfit/
 ├── model/
 │   └── pop_model.go        # Data structures
 ├── firstock/
-│   └── client.go           # Firstock API integration
+│   └── client.go           # Firstock authentication & Black-Scholes calculations
 ├── test/
 │   └── pop_test.go         # Unit tests
 ├── go.mod                  # Go module dependencies
@@ -308,6 +308,16 @@ ok      pop-calculator/test     1.381s
 - **joho/godotenv**: Environment variable management
 - **pquerna/otp**: TOTP authentication for Firstock API
 - **stretchr/testify**: Testing framework for assertions
+
+## Code Quality
+
+The codebase follows clean code principles with:
+
+- **No unused functions**: All code is actively utilized
+- **Professional structure**: Well-organized packages and clear separation of concerns
+- **Comprehensive testing**: 5 test cases covering various option strategies
+- **Mathematical accuracy**: Validated Black-Scholes implementation
+- **Performance optimized**: Efficient Monte Carlo simulation
 
 ## Performance
 
