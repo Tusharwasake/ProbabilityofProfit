@@ -5,7 +5,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"pop-calculator/firstock"
+	mathutils "pop-calculator/math"
 	"pop-calculator/model"
 )
 
@@ -30,6 +30,7 @@ func CalculatePoPValue(spot float64, daysToExpiry float64, expiryDate string, sy
 	var avgIV float64
 	if validIVCount > 0 {
 		avgIV = totalIV / float64(validIVCount)
+
 		log.Printf("Using average IV: %.4f (%.2f%%) from %d options", avgIV, avgIV*100, validIVCount)
 	} else {
 		// If no IV could be calculated, we cannot proceed with accurate simulation
@@ -55,7 +56,7 @@ func CalculatePoPValue(spot float64, daysToExpiry float64, expiryDate string, sy
 
 func getOptionIVs(optionList []model.OptionLeg, spot float64, timeToExpiry float64) map[string]float64 {
 	optionIVs := make(map[string]float64)
-	riskFreeRate := 0.065 // consider 6.5%
+	riskFreeRate := 0.063 // consider 6.5%
 
 	log.Printf("Calculating IV for %d options", len(optionList))
 
@@ -69,7 +70,7 @@ func getOptionIVs(optionList []model.OptionLeg, spot float64, timeToExpiry float
 
 		isCall := leg.OptionType == "CE"
 
-		calculatedIV, err := firstock.CalculateImpliedVolatility(
+		calculatedIV, err := mathutils.CalculateImpliedVolatility(
 			spot,
 			leg.Strike,
 			timeToExpiry,
@@ -89,6 +90,7 @@ func getOptionIVs(optionList []model.OptionLeg, spot float64, timeToExpiry float
 		}
 
 		optionIVs[strikeKey] = calculatedIV
+
 		log.Printf("Calculated IV for %s: %.4f (%.2f%%) from LTP %.2f", strikeKey, calculatedIV, calculatedIV*100, leg.LTP)
 	}
 

@@ -1,10 +1,10 @@
 # Probability of Profit Calculator
 
-A Go-based REST API that calculates the Probability of Profit (PoP) for options trading strategies using Monte Carlo simulation and implied volatility data from Firstock API.
+A Go-based REST API that calculates the Probability of Profit (PoP) for options trading strategies using Monte Carlo simulation and Black-Scholes implied volatility calculations.
 
 ## Overview
 
-This API calculates the probability that a given options strategy will end up profitable by expiry using statistical simulation methods.
+This API calculates the probability that a given options strategy will end up profitable by expiry using statistical simulation methods with market-derived implied volatility.
 
 ### Features
 
@@ -14,6 +14,7 @@ This API calculates the probability that a given options strategy will end up pr
 - Monte Carlo price simulation (500,000 iterations)
 - JSON input/output format
 - Unit tests included
+- **No external dependencies** - pure mathematical computation
 
 ## Quick Start
 
@@ -32,18 +33,12 @@ go mod download
 
 ### Configuration
 
-Create a `.env` file for Firstock API credentials (optional - used for authentication only):
+**No configuration required!** The application is ready to run out of the box.
 
+Optionally, set the server port:
 ```env
-FIRSTOCK_USER_ID=your_user_id
-FIRSTOCK_PASSWORD=your_password
-FIRSTOCK_TOTP_SECRET=your_totp_secret
-FIRSTOCK_API_KEY=your_api_key
-FIRSTOCK_VENDOR_CODE=your_vendor_code
 SERVER_PORT=8080
 ```
-
-Note: The application uses Black-Scholes calculations for implied volatility. Firstock credentials are only required for authentication.
 
 ### Running the Server
 
@@ -52,6 +47,8 @@ go run main.go
 ```
 
 The server will start on `http://localhost:8080`
+
+**Note**: This calculator uses user-provided option prices (LTP) to calculate implied volatility using the Black-Scholes model. No broker connectivity or API keys are required.
 
 ## API Documentation
 
@@ -201,12 +198,12 @@ ProbabilityofProfit/
 │   └── pop_service.go      # Business logic and calculations
 ├── model/
 │   └── pop_model.go        # Data structures
-├── firstock/
-│   └── client.go           # Firstock authentication & Black-Scholes calculations
+├── math/
+│   └── calculations.go     # Black-Scholes mathematical functions
 ├── test/
 │   └── pop_test.go         # Unit tests
 ├── go.mod                  # Go module dependencies
-└── .env                    # Configuration file
+└── .env                    # Optional configuration file
 ```
 
 ## Testing
@@ -305,9 +302,10 @@ ok      pop-calculator/test     1.381s
 ## Dependencies
 
 - **gin-gonic/gin**: HTTP web framework
-- **joho/godotenv**: Environment variable management
-- **pquerna/otp**: TOTP authentication for Firstock API
+- **joho/godotenv**: Environment variable management (optional)
 - **stretchr/testify**: Testing framework for assertions
+
+**Note**: No broker APIs, authentication tokens, or external data feeds required!
 
 ## Performance
 

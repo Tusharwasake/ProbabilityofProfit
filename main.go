@@ -5,39 +5,28 @@ import (
 	"log"
 	"os"
 	"pop-calculator/controller"
-	"pop-calculator/firstock"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-
+	// Load environment variables (optional - only for SERVER_PORT)
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	// Initialize Firstock client
-	if err := firstock.InitializeFromEnv(); err != nil {
-		log.Printf("Firstock authentication failed: %v", err)
-		log.Println("Using fallback calculations")
+		log.Println("No .env file found - using defaults")
 	}
 
 	app := gin.Default()
 	
+	// Simple health check endpoint
 	app.GET("/status", func(c *gin.Context) {
-		status := "authenticated"
-		if firstock.JKey == "" {
-			status = "fallback"
-		}
-		
 		c.JSON(200, gin.H{
 			"status": "running",
-			"auth":   status,
+			"service": "Probability of Profit Calculator",
 		})
 	})
 
-	// Register the /pop route only once
+	// Main PoP calculation endpoint
 	app.POST("/pop", controller.CalculatePoP)
 	
 	port := os.Getenv("SERVER_PORT")
